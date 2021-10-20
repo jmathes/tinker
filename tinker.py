@@ -30,31 +30,9 @@ import traceback
 import datetime
 
 
-try:
-    from lxml import etree
-except ImportError:
-    etree = None
-
-try:
-    long
-except NameError:
-    long = int
-
-
-try:
-    unicode
-except NameError:
-    unicode = str
-
-
-try:
-    basestring
-except NameError:
-    basestring = str
-
 
 # Listen up, you primitives! This is my BOOM stick
-primitives = [tuple, list, set, int, long, float, str, unicode, bool]
+primitives = [tuple, list, set, int, float, str, bool]
 
 
 def get_fn_args(function):
@@ -145,7 +123,7 @@ def get_pretty_debug_output(tb, value=None, my_name=None, my_type=None):
         exp = call
 
     docstring_lines = []
-    if isinstance(value.__doc__, basestring):
+    if isinstance(value.__doc__, str):
         docstring_lines = ["#  " + label for label in value.__doc__.split("\n")]
 
     members = dict(inspect.getmembers(value))
@@ -156,6 +134,11 @@ def get_pretty_debug_output(tb, value=None, my_name=None, my_type=None):
             lines[0] = lines[0][12:]
             lines[-1] = lines[-1][:-1]
     elif any(isinstance(value, t) for t in primitives):
+        my_primitive_types = sorted([
+            p.__name__ for p in primitives
+            if isinstance(value, p) and type(value) is not p
+        ])
+        my_type += "(" + ", ".join(my_primitive_types) + ")"
         lines += pformat(value).split("\n")
     elif my_type == "function":
         lines += docstring_lines
@@ -194,8 +177,6 @@ def get_pretty_debug_output(tb, value=None, my_name=None, my_type=None):
             else:
                 max_len = max(max_len, len(attr_name))
                 uncallables.append((attr, attr_name))
-        if etree is not None and my_type == "_Element":
-            max_len = max(max_len, len("etree.tostring()") + 2)
         full_spaces = " " * (max_len + 5)
 
         for attr, attr_name in uncallables:
@@ -218,9 +199,6 @@ def get_pretty_debug_output(tb, value=None, my_name=None, my_type=None):
                     first_line += f"... ({len(docstring)} more line{'' if len(docstring) == 1 else 's'})"
                 lines.append(full_spaces + "# " + first_line)
 
-        if etree is not None and my_type == "_Element":
-            spaces = " " * (max_len - len("etree.tostring()") + 2)
-            lines += (f"etree.tostring():{spaces}{etree.tostring(value)}").split("\n")
         if hasattr(value, "__traceback__"):
             lines.append("         --- traceback ---")
             lines += [line[:-1] for line in traceback.format_tb(value.__traceback__)]
@@ -230,7 +208,7 @@ def get_pretty_debug_output(tb, value=None, my_name=None, my_type=None):
             lines += pformat(value.__dict__).split("\n")
         except AttributeError:
             lines += pformat(value).split("\n")
-    if any(isinstance(value, t) for t in [list, tuple, dict, basestring]):
+    if any(isinstance(value, t) for t in [list, tuple, dict, str]):
         my_type += f"[{len(value)}]"
 
     return wrap_with_delimiters(f"{exp} :: {my_type}", tb, lines)
